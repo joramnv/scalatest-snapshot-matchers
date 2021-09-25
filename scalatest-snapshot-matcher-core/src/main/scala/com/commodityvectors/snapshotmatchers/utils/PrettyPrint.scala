@@ -26,7 +26,7 @@ object PrettyPrint {
           "\t" -> "\\t",
           "\"" -> "\\\""
         )
-        '"' + replaceMap.foldLeft(s) { case (acc, (c, r)) => acc.replace(c, r) } + '"'
+        "\"" + replaceMap.foldLeft(s) { case (acc, (c, r)) => acc.replace(c, r) } + "\""
       // For an empty Seq just use its normal String representation.
       case xs: Seq[_] if xs.isEmpty => xs.toString()
       case xs: Seq[_]               =>

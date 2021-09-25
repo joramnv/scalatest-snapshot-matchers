@@ -1,13 +1,14 @@
 package com.commodityvectors.snapshotmatchers
 
-import java.io.File
-
 import org.apache.commons.io.FileUtils
-import org.scalatest.{BeforeAndAfterEach, Matchers, fixture}
+import org.scalatest.BeforeAndAfterEach
+import org.scalatest.matchers.should.Matchers
+import org.scalatest.wordspec.FixtureAnyWordSpec
 
+import java.io.File
 import scala.util.Try
 
-class SnapshotGenerationSpec extends fixture.WordSpec with Matchers with SnapshotMatcher with BeforeAndAfterEach {
+class SnapshotGenerationSpec extends FixtureAnyWordSpec with Matchers with SnapshotMatcher with BeforeAndAfterEach {
 
   val snapshotFolder: String = "scalatest-snapshot-matcher-core/src/test/__snapshots__"
   val currentSpecPath: String = s"$snapshotFolder/com/commodityvectors/snapshotmatchers/SnapshotGenerationSpec"

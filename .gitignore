@@ -21,6 +21,9 @@ test-output/
 .project
 .settings
 
+# BSP
+.bsp
+
 # Sublime Text specific
 *.sublime-project
 *.sublime-workspace

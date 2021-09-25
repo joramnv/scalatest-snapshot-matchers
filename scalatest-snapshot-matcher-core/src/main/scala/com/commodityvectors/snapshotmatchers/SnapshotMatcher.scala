@@ -1,12 +1,11 @@
 package com.commodityvectors.snapshotmatchers
 
-import java.io.{File, PrintWriter}
-
 import com.typesafe.config.ConfigFactory
 import difflib.DiffUtils
 import org.scalatest.matchers.{MatchResult, Matcher}
-import org.scalatest.{Outcome, SuiteMixin, TestData, fixture}
+import org.scalatest.{FixtureTestSuite, Outcome, SuiteMixin, TestData}
 
+import java.io.{File, PrintWriter}
 import scala.collection.JavaConverters._
 import scala.io.Source
 import scala.util.Try
@@ -39,7 +38,7 @@ trait SnapshotLoader {
   }
 }
 
-trait TestDataArgs extends SuiteMixin { this: fixture.TestSuite =>
+trait TestDataArgs extends SuiteMixin { this: FixtureTestSuite =>
   type FixtureParam = TestData
 
   override def withFixture(test: OneArgTest): Outcome = {
@@ -81,7 +80,7 @@ trait SnapshotMessages {
 }
 
 trait SnapshotMatcher extends SnapshotLoader with SnapshotMessages with TestDataArgs with DefaultSerializers {
-  self: fixture.TestSuite =>
+  self: FixtureTestSuite =>
 
   private var testMap: Map[String, Int] = Map.empty
   private val ShouldGenerateSnapshot = sys.env.get("updateSnapshots").getOrElse("false").toBoolean
