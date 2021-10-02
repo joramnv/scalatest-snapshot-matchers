@@ -5,8 +5,11 @@ import difflib.DiffUtils
 import org.scalatest.matchers.{MatchResult, Matcher}
 import org.scalatest.{FixtureTestSuite, Outcome, SuiteMixin, TestData}
 
+import java.awt.image.BufferedImage
 import java.io.{File, PrintWriter}
-import scala.collection.JavaConverters._
+import java.nio.file.Paths
+import javax.imageio.ImageIO
+import scala.collection.JavaConverters.*
 import scala.io.Source
 import scala.util.Try
 
@@ -15,25 +18,41 @@ private object SnapshotLoader {
 }
 
 trait SnapshotLoader {
-  import SnapshotLoader._
+  import SnapshotLoader.*
 
-  private val conf = ConfigFactory.load()
-  private val testFolder = getClass.getName.replaceAll("\\.", "/")
-  private val snapshotFolder =
-    Try(conf.getString("snapshotmatcher.snapshotFolder")).toOption.getOrElse(DefaultSnapshotFolder)
-  private val fullWritePath = s"${getClass.getResource("").getPath.split("target").head}$snapshotFolder/$testFolder"
+  private val testFolder = getClass.getName.replaceAll("\\.", "/").toLowerCase
+
+  private val fullWritePath =
+    s"${getClass.getResource("").getPath.split("target").head}$DefaultSnapshotFolder/$testFolder"
 
   private def folderPath: String = new File(s"$fullWritePath").getAbsolutePath
-  private def filePath(id: String): String = new File(s"$folderPath/$id.snap").getAbsolutePath
+  private def filePath(filename: String): String = new File(s"$folderPath/$filename").getAbsolutePath
+  private def filename(id: String): String = if (id.contains(".")) then id else s"$id.snap"
 
-  def loadSnapshot(id: String): Option[String] = Try(Source.fromFile(filePath(id)).mkString).toOption
+  def loadSnapshot(id: String): Option[Any] = {
+    val filename = this.filename(id)
+    val filePath = this.filePath(filename)
+    if (SnapshotKindDeterminer.isImage(filePath)) {
+      Try(FileReader.readImageFile(filePath)).toOption
+    } else {
+      Try(Source.fromFile(filePath).mkString).toOption
+    }
+  }
+
   def writeSnapshot[T](id: String, content: T)(implicit s: SnapshotSerializer[T]): Unit = {
     new File(folderPath).mkdirs()
 
-    val file = new File(filePath(id))
-    new PrintWriter(file) {
-      write(s.serialize(content))
-      close()
+    val filename = this.filename(id)
+    val filePath = this.filePath(filename)
+    val file = new File(filePath)
+
+    if (SnapshotKindDeterminer.isImage(filename)) {
+      ImageIO.write(content.asInstanceOf[BufferedImage], "png", file)
+    } else {
+      new PrintWriter(file) {
+        write(s.serialize(content))
+        close()
+      }
     }
   }
 }
@@ -108,14 +127,43 @@ trait SnapshotMatcher extends SnapshotLoader with SnapshotMessages with TestData
           writeSnapshot(testIdentifier, left)
           MatchResult(matches = true, DefaultError, ContentsAreEqual)
         case Some(content) =>
-          MatchResult(matches = false, errorMessage(s.serialize(left), content), ContentsAreEqual)
+          MatchResult(matches = false,
+                      errorMessage(s.serialize(left),
+                                   content.toString /* TODO should write this better than just adding .toString. */ ),
+                      ContentsAreEqual)
         case None => // first time / new test
           writeSnapshot(testIdentifier, left)
           MatchResult(matches = true, DefaultError, ContentsAreEqual)
       }
     }
 
+    private def isEqual(content: Any, left: T): Boolean = {
+      if (content.isInstanceOf[BufferedImage]) then isEqual (content.asInstanceOf[BufferedImage], left)
+      else if (content.isInstanceOf[String]) then isEqual (content.asInstanceOf[String], left)
+      else false
+    }
+
     private def isEqual(content: String, left: T): Boolean = s.serialize(left) == content
+
+    private def isEqual(content: BufferedImage, left: T): Boolean = {
+      if (left.isInstanceOf[BufferedImage]) then compareImages (content, left.asInstanceOf[BufferedImage])
+      else false
+    }
+
+    def compareImages(imgA: BufferedImage, imgB: BufferedImage): Boolean = {
+      // The images must be the same size.
+      if (imgA.getWidth != imgB.getWidth || imgA.getHeight != imgB.getHeight) return false
+      val width = imgA.getWidth
+      val height = imgA.getHeight
+      // Loop over every pixel.
+      for (y <- 0 until height) {
+        for (x <- 0 until width) {
+          // Compare the pixels for equality.
+          if (imgA.getRGB(x, y) != imgB.getRGB(x, y)) return false
+        }
+      }
+      true
+    }
   }
 
   def matchSnapshot[T]()(implicit s: SnapshotSerializer[T], test: TestData): Matcher[T] =
